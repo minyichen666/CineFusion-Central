@@ -8,7 +8,7 @@ def index():
     conn = mysql.connector.connect(
         host='localhost',  # If Flask isn't running in a Docker container, use Docker's IP here
         port=3306,
-        database='mysql',
+        database='movie_db',
         user='root',
         password='rootpassword'
     )

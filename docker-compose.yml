@@ -2,7 +2,8 @@ version: '3.1'
 
 services:
   db:
-    image: mysql
+    image: minyichen666/cinefusion-central-mysql
+    container_name: cinefusion-central-mysql
     command: --default-authentication-plugin=mysql_native_password
     restart: always
     environment:

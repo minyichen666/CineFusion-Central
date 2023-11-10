@@ -1,5 +1,6 @@
-CREATE DATABASE movie;
-USE movie;
+DROP DATABASE movie_db;
+CREATE DATABASE movie_db;
+USE movie_db;
 CREATE TABLE Movie (
     movie_id INT PRIMARY KEY NOT NULL,
     type VARCHAR(255),
@@ -9,7 +10,6 @@ CREATE TABLE Movie (
     releasing_year INT,
     duration INT,
     CHECK (YEAR(date_added) >= releasing_year),
-    CHECK (releasing_year BETWEEN 1800 AND YEAR(CURRENT_DATE)),
     CHECK (duration > 0 AND duration <= 600)
 );
 
