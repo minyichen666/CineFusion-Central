@@ -11,5 +11,7 @@ services:
       MYSQL_DATABASE: movie_db
       MYSQL_USER: user
       MYSQL_PASSWORD: password
+    volumes:
+      - ./rsc/mysql:/var/lib/mysql-files
     ports:
       - "3306:3306"
