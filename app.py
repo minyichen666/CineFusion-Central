@@ -6,7 +6,7 @@ app = Flask(__name__)
 @app.route('/')
 def index():
     conn = mysql.connector.connect(
-        host='localhost',  # If Flask isn't running in a Docker container, use Docker's IP here
+        host='cinefusion-central-mysql',  # If Flask isn't running in a Docker container, use Docker's IP here
         port=3306,
         database='movie_db',
         user='root',
