@@ -3,21 +3,18 @@ CREATE DATABASE movie_db;
 USE movie_db;
 
 CREATE TABLE NetflixTitles (
-    show_id VARCHAR(255) PRIMARY KEY,
-    type VARCHAR(50),
+    show_id INT NOT NULL,
+    type VARCHAR(255),
     title VARCHAR(255),
-    director VARCHAR(255),
-    cast VARCHAR(1000),
     country VARCHAR(255),
-    date_added VARCHAR(255),
+    date_added DATE,
     release_year INT,
-    rating VARCHAR(50),
-    duration VARCHAR(100),
-    listed_in VARCHAR(255),
-    description TEXT
+    duration INT,
+    cast VARCHAR(1000),
+    listed_in VARCHAR(255)
 );
 
-LOAD DATA INFILE '/var/lib/mysql-files/netflix_titles.csv'
+LOAD DATA INFILE '/var/lib/mysql-files/new_netflix_titles.csv'
 INTO TABLE NetflixTitles
 FIELDS TERMINATED BY ','
 ENCLOSED BY '\"'
