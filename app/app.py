@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, redirect, url_for
+from flask import Flask, request, jsonify, redirect, url_for, render_template
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 import mysql.connector
 
@@ -15,6 +15,8 @@ db_config = {
 
 @app.route('/')
 def index():
+    if not current_user:
+        return render_template('login.html')
     conn = mysql.connector.connect(
         **db_config
     )
