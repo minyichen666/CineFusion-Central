@@ -21,8 +21,8 @@ def index():
         **db_config
     )
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM NetflixTitles LIMIT 1")
-    first_row = cursor.fetchone()
+    cursor.execute("SELECT * FROM Movie")
+    first_row = cursor.fetchall()
     cursor.close()
     conn.close()
     return str(first_row)
