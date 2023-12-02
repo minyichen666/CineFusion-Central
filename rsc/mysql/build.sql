@@ -89,17 +89,12 @@ CREATE TABLE Actor (
     actor_name VARCHAR(255) PRIMARY KEY NOT NULL
 );
 
-INSERT INTO
-    Actor (actor_name)
-SELECT
-    DISTINCT cast
-FROM
-    (
-        SELECT
-            cast
-        FROM
-            NetflixTitles
-    ) AS ActorData;
+INSERT INTO Actor (actor_name)
+SELECT DISTINCT cast
+FROM (
+    SELECT cast
+    FROM NetflixTitles
+) AS ActorData;
 
 CREATE TABLE RatingPlatform (
     platform_name VARCHAR(255) PRIMARY KEY NOT NULL
@@ -146,28 +141,27 @@ VALUES
 CREATE TABLE Watchlist (
     Username VARCHAR(255),
     title VARCHAR(255),
-    PRIMARY KEY (Username, title),
+    movie_id INT,
     FOREIGN KEY (Username) REFERENCES User(Username),
-    FOREIGN KEY (title) REFERENCES Movie(title)
+    FOREIGN KEY (movie_id) REFERENCES Movie(movie_id)
 );
 
-INSERT INTO
-    Watchlist (Username, title)
+INSERT INTO Watchlist (Username, title)
 SELECT
     u.Username,
-    m.title
+    m.title,
+    m.movie_id
 FROM
     User u
     CROSS JOIN Movie m
 WHERE
-    RAND() <= 0.5
-LIMIT
-    50;
+    RAND() <= 0.5  
+LIMIT 20;  
+
 
 CREATE TABLE ActsIn (
     movie_id INT,
     actor_name VARCHAR(255),
-    PRIMARY KEY (movie_id, actor_name),
     FOREIGN KEY (movie_id) REFERENCES Movie(movie_id),
     FOREIGN KEY (actor_name) REFERENCES Actor(actor_name)
 );
@@ -192,7 +186,7 @@ FROM
 CREATE TABLE GenreIn (
     movie_id INT,
     genre VARCHAR(255),
-    PRIMARY KEY (movie_id, genre),
+    PRIMARY KEY (movie_id, genre), 
     FOREIGN KEY (movie_id) REFERENCES Movie(movie_id),
     FOREIGN KEY (genre) REFERENCES Genre(genre)
 );
@@ -214,7 +208,8 @@ CREATE TABLE PlatformRating (
         AND rating <= 100
     ),
     PRIMARY KEY (title, platform_name),
-    FOREIGN KEY (platform_name) REFERENCES RatingPlatform(platform_name)
+    FOREIGN KEY (platform_name) REFERENCES RatingPlatform(platform_name),
+    FOREIGN KEY (title) REFERENCES Movie(title)
 );
 
 INSERT INTO
@@ -241,17 +236,3 @@ CREATE TABLE Friend (
     FOREIGN KEY (username1) REFERENCES User(Username),
     FOREIGN KEY (username2) REFERENCES User(Username)
 );
-
-INSERT INTO
-    Friend (username1, username2)
-SELECT
-    u1.Username,
-    u2.Username
-FROM
-    User u1
-    CROSS JOIN User u2
-WHERE
-    u1.Username < u2.Username
-    AND RAND() <= 0.5
-LIMIT
-    30;
