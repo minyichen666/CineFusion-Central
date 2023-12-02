@@ -1,6 +1,3 @@
-# FROM mysql:latest
-# COPY create-table.sql /docker-entrypoint-initdb.d/
-
 # Use an official Python runtime as a parent image
 FROM python:3.8-slim
 

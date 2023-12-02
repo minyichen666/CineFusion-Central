@@ -11,7 +11,7 @@ services:
         - FLASK_APP=app.py
         - FLASK_RUN_HOST=0.0.0.0
   db:
-    image: minyichen666/cinefusion-central-mysql:latest
+    image: minyichen666/cinefusion-central-mysql
     container_name: cinefusion-central-mysql
     command: --default-authentication-plugin=mysql_native_password
     restart: always
@@ -22,5 +22,6 @@ services:
       MYSQL_PASSWORD: password
     volumes:
       - ./rsc/mysql:/var/lib/mysql-files
+      - ./rsc/mysql-container:/docker-entrypoint-initdb.d
     ports:
       - "3306:3306"
