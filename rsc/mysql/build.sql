@@ -1,5 +1,7 @@
 DROP DATABASE movie_db;
+
 CREATE DATABASE movie_db;
+
 USE movie_db;
 
 CREATE TABLE NetflixTitles (
@@ -14,12 +16,7 @@ CREATE TABLE NetflixTitles (
     listed_in VARCHAR(255)
 );
 
-LOAD DATA INFILE '/var/lib/mysql-files/new_netflix_titles.csv'
-INTO TABLE NetflixTitles
-FIELDS TERMINATED BY ','
-OPTIONALLY ENCLOSED BY '\"'
-LINES TERMINATED BY '\n'
-IGNORE 1 LINES; 
+LOAD DATA INFILE '/var/lib/mysql-files/new_netflix_titles.csv' INTO TABLE NetflixTitles FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' IGNORE 1 LINES;
 
 CREATE TABLE TvShows (
     title VARCHAR(255) PRIMARY KEY NOT NULL,
@@ -29,20 +26,27 @@ CREATE TABLE TvShows (
     `Rotten Tomatoes` INT NOT NULL
 );
 
-LOAD DATA INFILE '/var/lib/mysql-files/new_tv_shows.csv'
-INTO TABLE TvShows
-FIELDS TERMINATED BY ','
-OPTIONALLY ENCLOSED BY '\"'
-LINES TERMINATED BY '\n'
-IGNORE 1 LINES; 
+LOAD DATA INFILE '/var/lib/mysql-files/new_tv_shows.csv' INTO TABLE TvShows FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' LINES TERMINATED BY '\n' IGNORE 1 LINES;
 
-DELETE FROM TvShows
-WHERE title NOT IN (SELECT DISTINCT title FROM NetflixTitles);
+DELETE FROM
+    TvShows
+WHERE
+    title NOT IN (
+        SELECT
+            DISTINCT title
+        FROM
+            NetflixTitles
+    );
 
-DELETE FROM NetflixTitles
-WHERE title NOT IN (SELECT DISTINCT title FROM TvShows);
-
-
+DELETE FROM
+    NetflixTitles
+WHERE
+    title NOT IN (
+        SELECT
+            DISTINCT title
+        FROM
+            TvShows
+    );
 
 CREATE TABLE Movie (
     movie_id INT PRIMARY KEY NOT NULL,
@@ -52,12 +56,32 @@ CREATE TABLE Movie (
     date_added DATE,
     release_year INT,
     duration INT,
-    CHECK (duration > 0 AND duration <= 600)
+    CHECK (
+        duration > 0
+        AND duration <= 600
+    )
 );
 
-INSERT INTO Movie (movie_id, type, title, country, date_added, release_year, duration)
-SELECT DISTINCT show_id, type, title, country, date_added, release_year, duration
-FROM NetflixTitles;
+INSERT INTO
+    Movie (
+        movie_id,
+        type,
+        title,
+        country,
+        date_added,
+        release_year,
+        duration
+    )
+SELECT
+    DISTINCT show_id,
+    type,
+    title,
+    country,
+    date_added,
+    release_year,
+    duration
+FROM
+    NetflixTitles;
 
 CREATE INDEX idx_movie_title ON Movie(title);
 
@@ -67,15 +91,24 @@ CREATE TABLE Actor (
 
 INSERT INTO Actor (actor_name)
 SELECT DISTINCT cast
-FROM NetflixTitles;
-
+FROM (
+    SELECT cast
+    FROM NetflixTitles
+) AS ActorData;
 
 CREATE TABLE RatingPlatform (
     platform_name VARCHAR(255) PRIMARY KEY NOT NULL
 );
 
-INSERT INTO RatingPlatform (platform_name) VALUES ('IMDb');
-INSERT INTO RatingPlatform (platform_name) VALUES ('Rotten Tomatoes');
+INSERT INTO
+    RatingPlatform (platform_name)
+VALUES
+    ('IMDb');
+
+INSERT INTO
+    RatingPlatform (platform_name)
+VALUES
+    ('Rotten Tomatoes');
 
 CREATE TABLE User (
     Username VARCHAR(255) PRIMARY KEY NOT NULL,
@@ -85,7 +118,14 @@ CREATE TABLE User (
     num_of_followers INT
 );
 
-INSERT INTO User (Username, password, user_description, user_attributes, num_of_followers)
+INSERT INTO
+    User (
+        Username,
+        password,
+        user_description,
+        user_attributes,
+        num_of_followers
+    )
 VALUES
     ('Zishun', 'Zishun', 'none', 'none', 0),
     ('Bowen', 'Bowen', 'none', 'none', 0),
@@ -98,7 +138,6 @@ VALUES
     ('Christopher', 'Christopher', 'none', 'none', 0),
     ('Olivia', 'Olivia', 'none', 'none', 0);
 
-
 CREATE TABLE Watchlist (
     Username VARCHAR(255),
     title VARCHAR(255),
@@ -107,18 +146,17 @@ CREATE TABLE Watchlist (
     FOREIGN KEY (movie_id) REFERENCES Movie(movie_id)
 );
 
-INSERT INTO Watchlist (Username, title, movie_id)
+INSERT INTO Watchlist (Username, title)
 SELECT
     u.Username,
     m.title,
     m.movie_id
 FROM
     User u
-CROSS JOIN
-    Movie m
+    CROSS JOIN Movie m
 WHERE
-    RAND() <= 0.1  
-LIMIT 1000;  
+    RAND() <= 0.5  
+LIMIT 20;  
 
 
 CREATE TABLE ActsIn (
@@ -128,46 +166,69 @@ CREATE TABLE ActsIn (
     FOREIGN KEY (actor_name) REFERENCES Actor(actor_name)
 );
 
-INSERT IGNORE INTO ActsIn (movie_id, actor_name) 
-SELECT show_id, CAST(cast AS CHAR)
-FROM NetflixTitles;
+INSERT
+    IGNORE INTO ActsIn (movie_id, actor_name)
+SELECT
+    show_id,
+    CAST(cast AS CHAR)
+FROM
+    NetflixTitles;
 
-CREATE TABLE Genre (
-    genre VARCHAR(255) PRIMARY KEY NOT NULL
-);
+CREATE TABLE Genre (genre VARCHAR(255) PRIMARY KEY NOT NULL);
 
-INSERT INTO Genre (genre)
-SELECT DISTINCT LOWER(listed_in) AS genre
-FROM NetflixTitles;
+INSERT INTO
+    Genre (genre)
+SELECT
+    DISTINCT LOWER(listed_in) AS genre
+FROM
+    NetflixTitles;
 
 CREATE TABLE GenreIn (
     movie_id INT,
     genre VARCHAR(255),
+    PRIMARY KEY (movie_id, genre), 
     FOREIGN KEY (movie_id) REFERENCES Movie(movie_id),
     FOREIGN KEY (genre) REFERENCES Genre(genre)
 );
 
-INSERT IGNORE INTO GenreIn (movie_id, genre) 
-SELECT show_id, LOWER(listed_in) AS genre
-FROM NetflixTitles;
+INSERT
+    IGNORE INTO GenreIn (movie_id, genre)
+SELECT
+    show_id,
+    LOWER(listed_in) AS genre
+FROM
+    NetflixTitles;
 
 CREATE TABLE PlatformRating (
     title VARCHAR(255),
     platform_name VARCHAR(255),
     rating FLOAT,
-    CHECK (rating >= 0 AND rating <= 100),
+    CHECK (
+        rating >= 0
+        AND rating <= 100
+    ),
     PRIMARY KEY (title, platform_name),
     FOREIGN KEY (platform_name) REFERENCES RatingPlatform(platform_name),
     FOREIGN KEY (title) REFERENCES Movie(title)
 );
 
-INSERT INTO PlatformRating (title, platform_name, rating)
-SELECT title, 'IMDb', IMDb
-FROM TvShows;
+INSERT INTO
+    PlatformRating (title, platform_name, rating)
+SELECT
+    title,
+    'IMDb',
+    IMDb
+FROM
+    TvShows;
 
-INSERT INTO PlatformRating (title, platform_name, rating)
-SELECT title, 'Rotten Tomatoes', IMDb
-FROM TvShows;
+INSERT INTO
+    PlatformRating (title, platform_name, rating)
+SELECT
+    title,
+    'Rotten Tomatoes',
+    IMDb
+FROM
+    TvShows;
 
 CREATE TABLE Friend (
     username1 VARCHAR(255),
@@ -175,16 +236,3 @@ CREATE TABLE Friend (
     FOREIGN KEY (username1) REFERENCES User(Username),
     FOREIGN KEY (username2) REFERENCES User(Username)
 );
-
-INSERT INTO Friend (username1, username2)
-SELECT
-    u1.Username,
-    u2.Username
-FROM
-    User u1
-CROSS JOIN
-    User u2
-WHERE
-    u1.Username < u2.Username  
-    AND RAND() <= 0.3  
-LIMIT 30;  
