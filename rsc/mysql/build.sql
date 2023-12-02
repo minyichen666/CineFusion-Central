@@ -59,6 +59,8 @@ INSERT INTO Movie (movie_id, type, title, country, date_added, release_year, dur
 SELECT DISTINCT show_id, type, title, country, date_added, release_year, duration
 FROM NetflixTitles;
 
+CREATE INDEX idx_movie_title ON Movie(title);
+
 CREATE TABLE Actor (
     actor_name VARCHAR(255) PRIMARY KEY NOT NULL
 );
@@ -86,13 +88,40 @@ CREATE TABLE User (
     num_of_followers INT
 );
 
+INSERT INTO User (Username, password, user_description, user_attributes, num_of_followers)
+VALUES
+    ('Zishun', 'Zishun', 'none', 'none', 0),
+    ('Bowen', 'Bowen', 'none', 'none', 0),
+    ('Minyi', 'Minyi', 'none', 'none', 0),
+    ('Sarah', 'Sarah', 'none', 'none', 0),
+    ('Michael', 'Michael', 'none', 'none', 0),
+    ('Emily', 'Emily', 'none', 'none', 0),
+    ('David', 'David', 'none', 'none', 0),
+    ('Jessica', 'Jessica', 'none', 'none', 0),
+    ('Christopher', 'Christopher', 'none', 'none', 0),
+    ('Olivia', 'Olivia', 'none', 'none', 0);
+
+
 CREATE TABLE Watchlist (
     Username VARCHAR(255),
-    ID INT,
-    PRIMARY KEY (Username, ID),
+    title VARCHAR(255),
+    PRIMARY KEY (Username, title),
     FOREIGN KEY (Username) REFERENCES User(Username),
-    UNIQUE (ID)
+    FOREIGN KEY (title) REFERENCES Movie(title)
 );
+
+INSERT INTO Watchlist (Username, title)
+SELECT
+    u.Username,
+    m.title
+FROM
+    User u
+CROSS JOIN
+    Movie m
+WHERE
+    RAND() <= 0.5  
+LIMIT 20;  
+
 
 CREATE TABLE ActsIn (
     movie_id INT,
@@ -142,17 +171,6 @@ FROM TvShows;
 INSERT INTO PlatformRating (title, platform_name, rating)
 SELECT title, 'Rotten Tomatoes', IMDb
 FROM TvShows;
-
-
-CREATE TABLE Watch (
-    Username VARCHAR(255),
-    ID INT,
-    movie_ID INT,
-    watch_times INT,
-    FOREIGN KEY (Username) REFERENCES User(Username),
-    FOREIGN KEY (ID) REFERENCES Watchlist(ID),
-    FOREIGN KEY (movie_ID) REFERENCES Movie(movie_id)
-);
 
 CREATE TABLE Friend (
     username1 VARCHAR(255),
