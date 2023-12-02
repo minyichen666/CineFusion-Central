@@ -10,16 +10,39 @@ CREATE TABLE NetflixTitles (
     date_added DATE,
     release_year INT,
     duration INT,
-    cast VARCHAR(1000),
+    cast VARCHAR(255),
     listed_in VARCHAR(255)
 );
 
 LOAD DATA INFILE '/var/lib/mysql-files/new_netflix_titles.csv'
 INTO TABLE NetflixTitles
 FIELDS TERMINATED BY ','
-ENCLOSED BY '\"'
+OPTIONALLY ENCLOSED BY '\"'
 LINES TERMINATED BY '\n'
-IGNORE 1 LINES;
+IGNORE 1 LINES; 
+
+CREATE TABLE TvShows (
+    title VARCHAR(255) PRIMARY KEY NOT NULL,
+    Year INT NOT NULL,
+    Age INT,
+    IMDb INT,
+    `Rotten Tomatoes` INT NOT NULL
+);
+
+LOAD DATA INFILE '/var/lib/mysql-files/new_tv_shows.csv'
+INTO TABLE TvShows
+FIELDS TERMINATED BY ','
+OPTIONALLY ENCLOSED BY '\"'
+LINES TERMINATED BY '\n'
+IGNORE 1 LINES; 
+
+DELETE FROM TvShows
+WHERE title NOT IN (SELECT DISTINCT title FROM NetflixTitles);
+
+DELETE FROM NetflixTitles
+WHERE title NOT IN (SELECT DISTINCT title FROM TvShows);
+
+
 
 CREATE TABLE Movie (
     movie_id INT PRIMARY KEY NOT NULL,
@@ -29,45 +52,31 @@ CREATE TABLE Movie (
     date_added DATE,
     release_year INT,
     duration INT,
-    CHECK (YEAR(date_added) >= release_year),
     CHECK (duration > 0 AND duration <= 600)
 );
 
 INSERT INTO Movie (movie_id, type, title, country, date_added, release_year, duration)
-SELECT show_id, type, title, country, date_added, release_year, duration
+SELECT DISTINCT show_id, type, title, country, date_added, release_year, duration
 FROM NetflixTitles;
 
 CREATE TABLE Actor (
-    actor_id INT PRIMARY KEY NOT NULL,
-    actor_name VARCHAR(255) NOT NULL
+    actor_name VARCHAR(255) PRIMARY KEY NOT NULL
 );
 
-INSERT INTO Actor (actor_id, actor_name)
-SELECT DISTINCT actor_id, actor_name
+INSERT INTO Actor (actor_name)
+SELECT DISTINCT cast
 FROM (
-    SELECT show_id, actor_id, actor_name
+    SELECT cast
     FROM NetflixTitles
 ) AS ActorData;
 
-CREATE TABLE Director (
-    director_id INT PRIMARY KEY NOT NULL,
-    director_name VARCHAR(255) NOT NULL
-);
-
-INSERT INTO Director (director_id, director_name)
-SELECT DISTINCT director_id, director_name
-FROM (
-    SELECT show_id, director_id, director_name
-    FROM NetflixTitles
-) AS DirectorData;
 
 CREATE TABLE RatingPlatform (
-    platform_id INT PRIMARY KEY NOT NULL,
-    platform_name VARCHAR(255) NOT NULL
+    platform_name VARCHAR(255)PRIMARY KEY NOT NULL
 );
 
-INSERT INTO RatingPlatform (platform_id, platform_name)
-VALUES (1, 'Netflix');
+INSERT INTO RatingPlatform (platform_name) VALUES ('IMDb');
+INSERT INTO RatingPlatform (platform_name) VALUES ('Rotten Tomatoes');
 
 CREATE TABLE User (
     Username VARCHAR(255) PRIMARY KEY NOT NULL,
@@ -87,38 +96,53 @@ CREATE TABLE Watchlist (
 
 CREATE TABLE ActsIn (
     movie_id INT,
-    actor_id INT,
+    actor_name VARCHAR(255),
+    PRIMARY KEY (movie_id, actor_name),
     FOREIGN KEY (movie_id) REFERENCES Movie(movie_id),
-    FOREIGN KEY (actor_id) REFERENCES Actor(actor_id)
+    FOREIGN KEY (actor_name) REFERENCES Actor(actor_name)
 );
 
-INSERT INTO ActsIn (movie_id, actor_id)
-SELECT show_id, actor_id
+INSERT IGNORE INTO ActsIn (movie_id, actor_name) 
+SELECT show_id, CAST(cast AS CHAR)
 FROM NetflixTitles;
 
-CREATE TABLE Directs (
-    movie_id INT,
-    director_id INT,
-    FOREIGN KEY (movie_id) REFERENCES Movie(movie_id),
-    FOREIGN KEY (director_id) REFERENCES Director(director_id)
+CREATE TABLE Genre (
+    genre VARCHAR(255) PRIMARY KEY NOT NULL
 );
 
-INSERT INTO Directs (movie_id, director_id)
-SELECT show_id, director_id
+INSERT INTO Genre (genre)
+SELECT DISTINCT LOWER(listed_in) AS genre
+FROM NetflixTitles;
+
+CREATE TABLE GenreIn (
+    movie_id INT,
+    genre VARCHAR(255),
+    PRIMARY KEY (movie_id, genre), 
+    FOREIGN KEY (movie_id) REFERENCES Movie(movie_id),
+    FOREIGN KEY (genre) REFERENCES Genre(genre)
+);
+
+INSERT IGNORE INTO GenreIn (movie_id, genre) 
+SELECT show_id, LOWER(listed_in) AS genre
 FROM NetflixTitles;
 
 CREATE TABLE PlatformRating (
-    movie_id INT,
-    platform_id INT,
+    title VARCHAR(255),
+    platform_name VARCHAR(255),
     rating FLOAT,
-    CHECK (rating >= 0 AND rating <= 10),
-    FOREIGN KEY (movie_id) REFERENCES Movie(movie_id),
-    FOREIGN KEY (platform_id) REFERENCES RatingPlatform(platform_id)
+    CHECK (rating >= 0 AND rating <= 100),
+    PRIMARY KEY (title, platform_name),
+    FOREIGN KEY (platform_name) REFERENCES RatingPlatform(platform_name)
 );
 
-INSERT INTO PlatformRating (movie_id, platform_id, rating)
-SELECT show_id, 1, CAST(rating AS DECIMAL(4, 2))
-FROM NetflixTitles;
+INSERT INTO PlatformRating (title, platform_name, rating)
+SELECT title, 'IMDb', IMDb
+FROM TvShows;
+
+INSERT INTO PlatformRating (title, platform_name, rating)
+SELECT title, 'Rotten Tomatoes', IMDb
+FROM TvShows;
+
 
 CREATE TABLE Watch (
     Username VARCHAR(255),
