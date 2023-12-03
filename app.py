@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, redirect, url_for, render_template, json
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 import mysql.connector
+from utils import MoviePlatformRating, MovieUser, MovieTVShows, MovieTVShowsFrequency
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Set a secret key for session management
@@ -117,10 +118,14 @@ def list_friend():
             WHERE F.username2 = %s;
         """
         cursor.execute(sql, (current_user.id, current_user.id,))
-        result = cursor.fetchall()
+        users = cursor.fetchall()
         cursor.close()
         conn.close()
-        return result if str(result) else None
+        if users:
+            users_list = [{"username": user[0]} for user in users]
+            return jsonify(users_list)
+        else:
+            return None
     else:
         return "bad"
 
@@ -191,6 +196,37 @@ def add_watchlist():
         conn.close()
     return jsonify(response)
 
+def get_movie(movie_name):
+    conn = mysql.connector.connect(
+        **db_config
+    )
+    cursor = conn.cursor()
+    query = """SELECT Movie.movie_id, Movie.type, Movie.title, Movie.country, 
+                Movie.date_added, Movie.release_year, Movie.duration, 
+                TvShows.Year, TvShows.Age, TvShows.IMDb, TvShows.`Rotten Tomatoes`
+        FROM Movie 
+        JOIN TvShows ON Movie.title = TvShows.title
+        WHERE Movie.title LIKE %s;"""
+    like_pattern = f'%{movie_name}%'
+    cursor.execute(query, (like_pattern,))
+    movies = cursor.fetchall()
+    return movies
+
+def get_movie_by_title(movie_name):
+    conn = mysql.connector.connect(
+        **db_config
+    )
+    cursor = conn.cursor()
+    query = """SELECT Movie.movie_id, Movie.type, Movie.title, Movie.country, 
+                Movie.date_added, Movie.release_year, Movie.duration, 
+                TvShows.Year, TvShows.Age, TvShows.IMDb, TvShows.`Rotten Tomatoes`
+        FROM Movie 
+        JOIN TvShows ON Movie.title = TvShows.title
+        WHERE Movie.title = %s;"""
+    cursor.execute(query, (movie_name,))
+    movie = cursor.fetchone()
+    return movie
+
 @app.route('/user/my-watchlist')
 @login_required
 def my_watchlist():
@@ -198,62 +234,55 @@ def my_watchlist():
         **db_config
     )
     cursor = conn.cursor()
-    query = "SELECT * FROM Watchlist WHERE Username = %s"
+    query = "SELECT title FROM Watchlist WHERE Username = %s"
     cursor.execute(query, (current_user.id,))
-    all_movie = cursor.fetchall()
+    movie_names = cursor.fetchall()
     cursor.close()
     conn.close()
-    return str(all_movie)
+    movies = []
+    for movie_name in movie_names:
+        movies.append(get_movie_by_title(movie_name[0]))
+    movies_list = [MovieTVShows(*movie).to_dict() for movie in movies]
+    return jsonify(movies_list)
 
 @app.route('/movie/list')
 def movie_list():
     movie_name = request.args.get('name', default='', type=str)
-    conn = mysql.connector.connect(
-        **db_config
-    )
-    cursor = conn.cursor()
-    query = "SELECT * FROM Movie WHERE title LIKE %s;"
-    like_pattern = f'%{movie_name}%'
-    cursor.execute(query, (like_pattern,))
-    all_movie = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return str(all_movie)
+    movies = get_movie(movie_name)
+    movies_list = [MovieTVShows(*movie).to_dict() for movie in movies]
+    return jsonify(movies_list)
 
 @app.route('/movie/recommend-by-friend')
 @login_required
 def recommend_by_friend():
     # Connect to your MySQL database
-    if current_user.is_authenticated:
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor()
-        sql = """
-        WITH FriendMovies AS (
-            SELECT W.title, COUNT(*) AS frequency
-            FROM Watchlist W
-            WHERE W.Username IN (
-                SELECT F.username2
-                FROM Friend F
-                WHERE F.username1 = %s
-                UNION
-                SELECT F.username1
-                FROM Friend F
-                WHERE F.username2 = %s
-            )
-            GROUP BY W.title
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+    sql = """
+    WITH FriendMovies AS (
+        SELECT W.title, COUNT(*) AS frequency
+        FROM Watchlist W
+        WHERE W.Username IN (
+            SELECT F.username2
+            FROM Friend F
+            WHERE F.username1 = %s
         )
-        SELECT FM.title, FM.frequency
-        FROM FriendMovies FM
-        ORDER BY FM.frequency DESC
-        LIMIT 3;
-        """
-        cursor.execute(sql, (current_user.id, current_user.id,))
-        result = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        return result if str(result) else None
-    else:
-        return "bad"
+        GROUP BY W.title
+    )
+    SELECT FM.title, FM.frequency
+    FROM FriendMovies FM
+    ORDER BY FM.frequency DESC
+    LIMIT 3;
+    """
+    cursor.execute(sql, (current_user.id,))
+    movie_frequencies = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    movies = []
+    for movie_name, frequency in movie_frequencies:
+        movies.append(MovieTVShowsFrequency(*get_movie_by_title(movie_name), frequency=frequency))
+    movies_list = [movie.to_dict() for movie in movies]
+    return jsonify(movies_list)
     
 
 @app.route('/movie/recommend-by-genre')
@@ -287,10 +316,14 @@ def recommend_by_genre():
         LIMIT 5;
     """
     cursor.execute(sql, (current_user.id,))
-    result = cursor.fetchall()
+    movie_frequencies = cursor.fetchall()
     cursor.close()
     conn.close()
-    return result if str(result) else None
+    movies = []
+    for movie_name, rating, platform_name in movie_frequencies:
+        movies.append(MovieTVShows(*get_movie_by_title(movie_name)))
+    movies_list = [movie.to_dict() for movie in movies]
+    return jsonify(movies_list)
 
     
 
