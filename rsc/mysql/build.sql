@@ -146,7 +146,7 @@ CREATE TABLE Watchlist (
     FOREIGN KEY (movie_id) REFERENCES Movie(movie_id)
 );
 
-INSERT INTO Watchlist (Username, title)
+INSERT INTO Watchlist (Username,title, movie_id) 
 SELECT
     u.Username,
     m.title,
@@ -226,7 +226,7 @@ INSERT INTO
 SELECT
     title,
     'Rotten Tomatoes',
-    IMDb
+    'Rotten Tomatoes'
 FROM
     TvShows;
 
