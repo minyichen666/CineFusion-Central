@@ -166,7 +166,7 @@ SELECT title, 'IMDb', IMDb
 FROM TvShows;
 
 INSERT INTO PlatformRating (title, platform_name, rating)
-SELECT title, 'Rotten Tomatoes', IMDb
+SELECT title, 'Rotten Tomatoes', `Rotten Tomatoes`
 FROM TvShows;
 
 CREATE TABLE Friend (
