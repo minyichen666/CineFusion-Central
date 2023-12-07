@@ -20,7 +20,7 @@ def home():
 
 @app.route('/test')
 def test():
-    return "logged in successfully"
+    return render_template('home.html')
 def index():
     # if not current_user:
     #     return render_template('./app/templates/login.html')
@@ -102,7 +102,7 @@ def login():
         print("user found")
         user = User(username)
         login_user(user)
-        return redirect(url_for('test'))
+        return redirect(url_for('recommend_by_genre'))
     else:
         print("user not found")
         return jsonify({'error': 'Invalid username or password'}), 401
@@ -194,21 +194,20 @@ def add_watchlist():
 
 
 
-
-@app.route('/movie/list')
-def movie_list():
-    movie_name = request.args.get('name', default='', type=str)
+def get_movie_by_title(movie_name):
     conn = mysql.connector.connect(
         **db_config
     )
     cursor = conn.cursor()
-    query = "SELECT * FROM Movie WHERE title = %s"
-    cursor.execute(query, (movie_name))
-    movie = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return str(all_movie)
-    
+    query = """SELECT Movie.movie_id, Movie.type, Movie.title, Movie.country, 
+                Movie.date_added, Movie.release_year, Movie.duration, 
+                TvShows.Year, TvShows.Age, TvShows.IMDb, TvShows.`Rotten Tomatoes`
+        FROM Movie 
+        JOIN TvShows ON Movie.title = TvShows.title
+        WHERE Movie.title = %s;"""
+    cursor.execute(query, (movie_name,))
+    movie = cursor.fetchone()
+    return movie
 
 
 @app.route('/movie/recommend')
@@ -245,6 +244,78 @@ def recommend_user():
         return result if str(result) else None
     else:
         return "bad"
+class MovieTVShows:
+    def __init__(self, movie_id, type, title, country, date_added, release_year, duration, Year, Age, IMDb, Rotten_Tomatoes):
+        self.movie_id = movie_id
+        self.type = type
+        self.title = title
+        self.country = country
+        self.date_added = date_added
+        self.release_year = release_year
+        self.duration = duration
+        self.Year = Year
+        self.Age = Age
+        self.IMDb = IMDb
+        self.Rotten_Tomatoes = Rotten_Tomatoes
+
+    def __repr__(self):
+        return f"<Movie {self.title}>"
+
+    def to_dict(self):
+        return {
+            'movie_id': self.movie_id,
+            'type': self.type,
+            'title': self.title,
+            'country': self.country,
+            'date_added': self.date_added,
+            'release_year': self.release_year,
+            'duration': self.duration,
+            'Year': self.Year,
+            'Age': self.Age,
+            'IMDb': self.IMDb,
+            'Rotten_Tomatoes': self.Rotten_Tomatoes
+        }
+    
+
+@app.route('/movie/recommend-by-genre')
+@login_required
+def recommend_by_genre():
+    # Connect to your MySQL database
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
+    sql = """
+            WITH UserFavoriteGenre AS (
+            SELECT gi.genre, COUNT(gi.genre) AS genre_count
+            FROM Watchlist w
+            JOIN GenreIn gi ON w.movie_id = gi.movie_id
+            WHERE w.Username = %s
+            GROUP BY gi.genre
+            ORDER BY genre_count DESC
+            LIMIT 1
+        )
+
+        SELECT DISTINCT m.title, pr.rating, pr.platform_name
+        FROM Movie m
+        INNER JOIN PlatformRating pr ON m.title = pr.title
+        INNER JOIN GenreIn gi ON m.title = gi.movie_id
+        WHERE gi.genre = (SELECT genre FROM UserFavoriteGenre)
+        AND (m.title, pr.rating) IN (
+            SELECT title, MAX(rating) AS max_rating
+            FROM PlatformRating
+            GROUP BY title
+        )
+        ORDER BY pr.rating DESC
+        LIMIT 5;
+    """
+    cursor.execute(sql, (current_user.id,))
+    movie_frequencies = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    movies = []
+    for movie_name, rating, platform_name in movie_frequencies:
+        movies.append(MovieTVShows(*get_movie_by_title(movie_name)))
+    movies_list = [movie.to_dict() for movie in movies]
+    return render_template('home.html', movies_list=movies)
 
     
 
