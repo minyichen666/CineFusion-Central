@@ -7,7 +7,8 @@ app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Set a secret key for session management
 
 db_config = {
-    'host': 'cinefusion-central-mysql',  # If Flask isn't running in a Docker container, use Docker's IP here
+    # 'host': 'cinefusion-central-mysql',  # If Flask isn't running in a Docker container, use Docker's IP here
+    'host': 'localhost',
     'port': 3306,
     'database': 'movie_db',
     'user': 'root',
@@ -15,6 +16,12 @@ db_config = {
 }
 
 @app.route('/')
+def home():
+    return render_template('login.html')
+
+@app.route('/test')
+def test():
+    return render_template('home.html')
 def index():
     # if not current_user:
     #     return render_template('./app/templates/login.html')
@@ -29,6 +36,10 @@ def index():
     return str(first_row)
 
 # Sign-up Route
+@app.route('/signupPage')
+def signupPage():
+    return render_template('signup.html')
+
 @app.route('/signup', methods=['POST'])
 def signup():
     # Connect to database
@@ -36,7 +47,7 @@ def signup():
     cursor = conn.cursor()
 
     # Get user data from request
-    user_data = request.json
+    user_data = request.form
     username = user_data['username']
     password = user_data['password']  # In real-world applications, ensure you hash passwords
 
@@ -49,7 +60,7 @@ def signup():
     cursor.close()
     conn.close()
 
-    return json.dumps({'status': 'success'}), 200
+    return redirect(url_for('home'))
 
 
 login_manager = LoginManager()
@@ -73,7 +84,7 @@ def current_user_route():
 # Example login route for demonstration purposes
 @app.route('/login', methods=['POST'])
 def login():
-    user_data = request.json
+    user_data = request.form
     username = user_data['username']
     password = user_data['password']
 
@@ -88,11 +99,13 @@ def login():
     cursor.close()
     conn.close()
 
-    if user and user['password'] == password:
+    if user :
+        print("user found")
         user = User(username)
         login_user(user)
-        return redirect(url_for('current_user_route'))
+        return redirect(url_for('recommend_by_genre'))
     else:
+        print("user not found")
         return jsonify({'error': 'Invalid username or password'}), 401
 
 # Example logout route
@@ -196,6 +209,7 @@ def add_watchlist():
         conn.close()
     return jsonify(response)
 
+
 def get_movie(movie_name):
     conn = mysql.connector.connect(
         **db_config
@@ -244,7 +258,7 @@ def my_watchlist():
         movies.append(get_movie_by_title(movie_name[0]))
     movies_list = [MovieTVShows(*movie).to_dict() for movie in movies]
     return jsonify(movies_list)
-
+  
 @app.route('/movie/list')
 def movie_list():
     movie_name = request.args.get('name', default='', type=str)
@@ -269,6 +283,7 @@ def recommend_by_friend():
             )
             GROUP BY W.title
         )
+
         ,
         Top20Movies AS (
             SELECT FM.title, FM.frequency
