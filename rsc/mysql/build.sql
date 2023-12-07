@@ -10,8 +10,8 @@ CREATE TABLE NetflixTitles (
     date_added DATE,
     release_year INT,
     duration INT,
-    cast VARCHAR(255),
-    listed_in VARCHAR(255)
+    listed_in VARCHAR(255),
+    cast VARCHAR(255)
 );
 
 LOAD DATA INFILE '/var/lib/mysql-files/new_netflix_titles.csv'
@@ -26,7 +26,7 @@ CREATE TABLE TvShows (
     Year INT NOT NULL,
     Age INT,
     IMDb INT,
-    `Rotten Tomatoes` INT NOT NULL
+    `Rotten Tomatoes` INT
 );
 
 LOAD DATA INFILE '/var/lib/mysql-files/new_tv_shows.csv'
@@ -49,14 +49,13 @@ CREATE TABLE Movie (
     type VARCHAR(255),
     title VARCHAR(255),
     country VARCHAR(255),
-    date_added DATE,
     release_year INT,
     duration INT,
     CHECK (duration > 0 AND duration <= 600)
 );
 
-INSERT INTO Movie (movie_id, type, title, country, date_added, release_year, duration)
-SELECT DISTINCT show_id, type, title, country, date_added, release_year, duration
+INSERT INTO Movie (movie_id, type, title, country, release_year, duration)
+SELECT DISTINCT show_id, type, title, country,  release_year, duration
 FROM NetflixTitles;
 
 CREATE INDEX idx_movie_title ON Movie(title);
@@ -186,5 +185,5 @@ CROSS JOIN
     User u2
 WHERE
     u1.Username < u2.Username  
-    AND RAND() <= 0.3  
-LIMIT 30;  
+    AND RAND() <= 0.5  
+LIMIT 50;  

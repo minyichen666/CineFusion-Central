@@ -259,20 +259,28 @@ def recommend_by_friend():
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
     sql = """
-    WITH FriendMovies AS (
-        SELECT W.title, COUNT(*) AS frequency
-        FROM Watchlist W
-        WHERE W.Username IN (
-            SELECT F.username2
-            FROM Friend F
-            WHERE F.username1 = %s
+        WITH FriendMovies AS (
+            SELECT W.title, COUNT(*) AS frequency
+            FROM Watchlist W
+            WHERE W.Username IN (
+                SELECT F.username2
+                FROM Friend F
+                WHERE F.username1 = %s
+            )
+            GROUP BY W.title
         )
-        GROUP BY W.title
-    )
-    SELECT FM.title, FM.frequency
-    FROM FriendMovies FM
-    ORDER BY FM.frequency DESC
-    LIMIT 3;
+        ,
+        Top20Movies AS (
+            SELECT FM.title, FM.frequency
+            FROM FriendMovies FM
+            ORDER BY FM.frequency DESC
+            LIMIT 20
+        )
+
+        SELECT title, frequency
+        FROM Top20Movies
+        ORDER BY RAND()
+        LIMIT 5;
     """
     cursor.execute(sql, (current_user.id,))
     movie_frequencies = cursor.fetchall()
@@ -293,27 +301,35 @@ def recommend_by_genre():
     cursor = conn.cursor()
     sql = """
             WITH UserFavoriteGenre AS (
-            SELECT gi.genre, COUNT(gi.genre) AS genre_count
-            FROM Watchlist w
-            JOIN GenreIn gi ON w.movie_id = gi.movie_id
-            WHERE w.Username = %s
-            GROUP BY gi.genre
-            ORDER BY genre_count DESC
-            LIMIT 1
-        )
+    SELECT gi.genre, COUNT(gi.genre) AS genre_count
+    FROM Watchlist w
+    JOIN GenreIn gi ON w.movie_id = gi.movie_id
+    WHERE w.Username = %s
+    GROUP BY gi.genre
+    ORDER BY genre_count DESC
+    LIMIT 1
+),
 
-        SELECT DISTINCT m.title, pr.rating, pr.platform_name
-        FROM Movie m
-        INNER JOIN PlatformRating pr ON m.title = pr.title
-        INNER JOIN GenreIn gi ON m.title = gi.movie_id
-        WHERE gi.genre = (SELECT genre FROM UserFavoriteGenre)
-        AND (m.title, pr.rating) IN (
-            SELECT title, MAX(rating) AS max_rating
-            FROM PlatformRating
-            GROUP BY title
-        )
-        ORDER BY pr.rating DESC
-        LIMIT 5;
+Top20Movies AS (
+    SELECT DISTINCT m.title, pr.rating, pr.platform_name
+    FROM Movie m
+    INNER JOIN PlatformRating pr ON m.title = pr.title
+    INNER JOIN GenreIn gi ON m.movie_id = gi.movie_id
+    WHERE gi.genre = (SELECT genre FROM UserFavoriteGenre)
+    AND (m.title, pr.rating) IN (
+        SELECT title, MAX(rating) AS max_rating
+        FROM PlatformRating
+        GROUP BY title
+    )
+    ORDER BY pr.rating DESC
+    LIMIT 20
+)
+
+SELECT title, rating, platform_name
+FROM Top20Movies
+ORDER BY RAND()
+LIMIT 5;
+
     """
     cursor.execute(sql, (current_user.id,))
     movie_frequencies = cursor.fetchall()
