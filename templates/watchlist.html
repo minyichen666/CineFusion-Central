@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Watchlist</title>
+    <!-- Add Bootstrap for styling (optional) -->
+    <link
+      href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        display: flex;
+      }
+      #sidebar {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+      #content {
+        flex-grow: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="sidebar" class="bg-light border d-flex flex-column">
+      <button onclick="loadWatchlist()" class="btn btn-light btn-block">
+        My Watchlist
+      </button>
+      <div class="mt-auto"></div>
+      <button onclick="loadHome()" class="btn btn-light btn-block">Home</button>
+    </div>
+    <div id="content"></div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+      function loadWatchlist() {
+        fetch(`/user/my-watchlist`)
+          .then((response) => response.json())
+          .then((movies) => {
+            const contentDiv = document.getElementById("content");
+            contentDiv.innerHTML = '<ul class="list-group">';
+            movies.forEach((movie) => {
+              contentDiv.innerHTML += `<li class="list-group-item">${movie.title}</li>`;
+            });
+            contentDiv.innerHTML += "</ul>";
+          })
+          .catch((error) => console.error("Error:", error));
+      }
+
+      function loadHome() {
+        window.location.href = "/homepage";
+      }
+    </script>
+  </body>
+</html>
