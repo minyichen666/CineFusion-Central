@@ -49,13 +49,14 @@ CREATE TABLE Movie (
     type VARCHAR(255),
     title VARCHAR(255),
     country VARCHAR(255),
+    date_added DATE,
     release_year INT,
     duration INT,
     CHECK (duration > 0 AND duration <= 600)
 );
 
-INSERT INTO Movie (movie_id, type, title, country, release_year, duration)
-SELECT DISTINCT show_id, type, title, country,  release_year, duration
+INSERT INTO Movie (movie_id, type, title, country, date_added, release_year, duration)
+SELECT DISTINCT show_id, type, title, country, date_added, release_year, duration
 FROM NetflixTitles;
 
 CREATE INDEX idx_movie_title ON Movie(title);
