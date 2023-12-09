@@ -2,9 +2,11 @@
 
 ## how to run
 1. Clone the repo
-2. Go to the root folder and run `pip install -r requirements.txt`
-3. Run `docker-compose up`
-4. The application is available at `http://localhost:5000/`
+2. Install Docker Desktop at `https://www.docker.com/products/docker-desktop/`
+3. Start Docker Desktop
+4. Go to the root folder and run `pip install -r requirements.txt`
+5. Run `docker-compose up`
+6. The application is available at `http://localhost:5000/`
 
 ## Demo
 
