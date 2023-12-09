@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify, redirect, url_for, render_template, json
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 import mysql.connector
-from utils import MoviePlatformRating, MovieUser, MovieTVShows, MovieTVShowsFrequency
+from utils import  AppUser, MovieTVShows
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Set a secret key for session management
@@ -18,22 +18,6 @@ db_config = {
 @app.route('/')
 def home():
     return render_template('login.html')
-
-@app.route('/test')
-def test():
-    return render_template('home.html')
-def index():
-    # if not current_user:
-    #     return render_template('./app/templates/login.html')
-    conn = mysql.connector.connect(
-        **db_config
-    )
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM Movie")
-    first_row = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return str(first_row)
 
 # Sign-up Route
 @app.route('/signupPage')
@@ -81,7 +65,6 @@ def load_user(user_id):
 def current_user_route():
     return f"Current user: {current_user.id}"
 
-# Example login route for demonstration purposes
 @app.route('/login', methods=['POST'])
 def login():
     user_data = request.form
@@ -103,7 +86,7 @@ def login():
         print("user found")
         user = User(username)
         login_user(user)
-        return redirect(url_for('recommend_by_genre'))
+        return redirect(url_for('homepage'))
     else:
         print("user not found")
         return jsonify({'error': 'Invalid username or password'}), 401
@@ -131,21 +114,21 @@ def list_friend():
             WHERE F.username2 = %s;
         """
         cursor.execute(sql, (current_user.id, current_user.id,))
-        users = cursor.fetchall()
+        friends = cursor.fetchall()
         cursor.close()
         conn.close()
-        if users:
-            users_list = [{"username": user[0]} for user in users]
-            return jsonify(users_list)
-        else:
-            return None
-    else:
-        return "bad"
+        friend_list = []
+
+        for friend in friends:
+            friend_list.append(AppUser(*friend))
+
+        return render_template('friend.html', friends=friend_list)
+
 
 @app.route('/user/add-friend', methods=['POST'])
 @login_required
 def add_friend():
-    user_data = request.json
+    user_data = request.form
     username = user_data['username']
     response = {}
     if current_user.is_authenticated:
@@ -173,38 +156,35 @@ def add_friend():
             conn.close()
     else:
         response['error'] = 'User is not authenticated.'
-    return jsonify(response)
+    return redirect(url_for('list_friend'))
 
 @app.route('/watchlist/add-movie', methods=['POST'])
 @login_required
 def add_watchlist():
     movie_title = request.json['movie_title']
     response = {}
-    try:
-        conn = mysql.connector.connect(**db_config)
-        cursor = conn.cursor()
+
+    conn = mysql.connector.connect(**db_config)
+    cursor = conn.cursor()
         # Check if the movie already added
-        sql = "SELECT * FROM Watchlist WHERE Username = %s and title = %s"
-        cursor.execute(sql, (current_user.id, movie_title,))
-        movie = cursor.fetchone()
+    sql = "SELECT * FROM Watchlist WHERE Username = %s and title = %s"
+    cursor.execute(sql, (current_user.id, movie_title,))
+    movie = cursor.fetchone()
 
-        if movie:
-            response['message'] = 'Movie already added.'
-        else:
-            sql = "SELECT * FROM Watchlist WHERE title = %s"
-            cursor.execute(sql, (movie_title,))
-            movie = cursor.fetchone()
-            movie_id = movie["movie_id"]
+    if movie:
+        response['message'] = 'Movie already added.'
+    else:
+        sql = "SELECT movie_id FROM Movie WHERE title = %s"
+        cursor.execute(sql, (movie_title,))
+        movie_id = cursor.fetchone()
+            
 
-            sql = """
+        sql = """
                 INSERT INTO Watchlist(Username, title, movie_id) VALUES(%s, %s, %s);
             """
-            cursor.execute(sql, (current_user.id, movie_title, movie_id))
-            conn.commit()
-            response['message'] = 'Movie added successfully.'
-    except mysql.connector.Error as err:
-        response['error'] = str(err)
-    finally:
+        cursor.execute(sql, (current_user.id, movie_title, movie_id[0]))
+        conn.commit()
+        response['message'] = 'Movie added successfully.'
         cursor.close()
         conn.close()
     return jsonify(response)
@@ -239,8 +219,12 @@ def get_movie_by_title(movie_name):
         WHERE Movie.title = %s;"""
     cursor.execute(query, (movie_name,))
     movie = cursor.fetchone()
-    return movie
+    return MovieTVShows(*movie)
 
+@app.route('/watchlistpage')
+@login_required
+def watchlistpage():
+    return render_template('watchlist.html')
 @app.route('/user/my-watchlist')
 @login_required
 def my_watchlist():
@@ -256,8 +240,8 @@ def my_watchlist():
     movies = []
     for movie_name in movie_names:
         movies.append(get_movie_by_title(movie_name[0]))
-    movies_list = [MovieTVShows(*movie).to_dict() for movie in movies]
-    return jsonify(movies_list)
+    movies = [movie.to_dict() for movie in movies]
+    return jsonify(movies)
   
 @app.route('/movie/list')
 def movie_list():
@@ -269,7 +253,6 @@ def movie_list():
 @app.route('/movie/recommend-by-friend')
 @login_required
 def recommend_by_friend():
-    # Connect to your MySQL database
     conn = mysql.connector.connect(**db_config)
     cursor = conn.cursor()
     sql = """
@@ -298,14 +281,13 @@ def recommend_by_friend():
         LIMIT 5;
     """
     cursor.execute(sql, (current_user.id,))
-    movie_frequencies = cursor.fetchall()
+    movies= cursor.fetchall()
     cursor.close()
     conn.close()
-    movies = []
-    for movie_name, frequency in movie_frequencies:
-        movies.append(MovieTVShowsFrequency(*get_movie_by_title(movie_name), frequency=frequency))
-    movies_list = [movie.to_dict() for movie in movies]
-    return jsonify(movies_list)
+    movie_list = []
+    for movie_name in movies:
+        movie_list.append(get_movie_by_title(movie_name[0]))
+    return jsonify([movie.to_dict() for movie in movie_list])
     
 
 @app.route('/movie/recommend-by-genre')
@@ -347,15 +329,17 @@ LIMIT 5;
 
     """
     cursor.execute(sql, (current_user.id,))
-    movie_frequencies = cursor.fetchall()
+    movies = cursor.fetchall()
     cursor.close()
     conn.close()
-    movies = []
-    for movie_name, rating, platform_name in movie_frequencies:
-        movies.append(MovieTVShows(*get_movie_by_title(movie_name)))
-    movies_list = [movie.to_dict() for movie in movies]
-    return jsonify(movies_list)
+    movie_list = []
+    for movie_name in movies:
+        movie_list.append(get_movie_by_title(movie_name[0]))
+    return jsonify([movie.to_dict() for movie in movie_list])
 
+@app.route('/homepage')
+def homepage():
+    return render_template('home.html')
     
 
 if __name__ == "__main__":
